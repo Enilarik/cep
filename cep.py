@@ -6,22 +6,25 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+
 def set_year(emission, reference):
     # fake a leap year
     emission = datetime.strptime(emission + '00', '%d/%m%y')
     if emission.month <= reference.month:
         emission = emission.replace(year=reference.year)
     else:
-        emission = emission.replace(year=reference.year-1)
+        emission = emission.replace(year=reference.year - 1)
     return datetime.strftime(emission, '%d/%m/%Y')
+
 
 def set_amount(amount, debit):
     if debit:
         return ';' + amount
     return amount + ';'
 
+
 def set_entry(emission, reference_emission, account_number, index, statement,
-        amount, debit):
+              amount, debit):
     res = set_year(emission, reference_emission) + ';'
     res += account_number + ';'
     res += index + ';'
@@ -30,22 +33,23 @@ def set_entry(emission, reference_emission, account_number, index, statement,
     res += '\n'
     return res
 
+
 def main():
     csv = 'date;account;type;statement;credit;debit\n'
 
     # sections
     sections = [
-            ( 'DEPOT', 'Opérations de dépôt', False ),
-            ( 'TRANSFERT', 'Virements reçus', False ),
-            ( 'CHECK', 'Paiements chèques', True ),
-            ( 'BANK', 'Frais bancaires et cotisations', True ),
-            ( 'DEBIT', 'Paiements carte bancaire', True ),
-            ( 'WITHDRAWAL', 'Retraits carte bancaire', True ),
-            ( 'DIRECTDEBIT', 'Prélèvements', True )
-            ]
+        ('DEPOT', 'Opérations de dépôt', False),
+        ('TRANSFERT', 'Virements reçus', False),
+        ('CHECK', 'Paiements chèques', True),
+        ('BANK', 'Frais bancaires et cotisations', True),
+        ('DEBIT', 'Paiements carte bancaire', True),
+        ('WITHDRAWAL', 'Retraits carte bancaire', True),
+        ('DIRECTDEBIT', 'Prélèvements', True)
+    ]
 
     reg1 = r'^(\d\d\/\d\d)(.*)\s+([\d, ]+?)$'
-    reg2= r'^([\d, ]+?)(\d\d\/\d\d)(.*)$'
+    reg2 = r'^([\d, ]+?)(\d\d\/\d\d)(.*)$'
 
     # go through each file
     p = Path(sys.argv[1])
@@ -53,6 +57,7 @@ def main():
         filename = str(filename)
         if filename.endswith('pdf') == False:
             continue
+        print('Parsing: ' + filename)
 
         # escape spaces in name
         filename = re.sub(r'\s', '\\ ', filename)
@@ -91,7 +96,7 @@ def main():
                 for (emission, statement, amount) in res:
                     no_section = False
                     csv += set_entry(emission, reference_emission,
-                            account_number, index, statement, amount, debit)
+                                     account_number, index, statement, amount, debit)
 
             # nothing has been found above: test others things
             if no_section:
@@ -99,13 +104,13 @@ def main():
                 res = re.findall(reg1, account_copy, flags=re.M)
                 for (emission, statement, amount) in res:
                     csv += set_entry(emission, reference_emission,
-                            account_number, 'OTHER', statement, amount, True)
+                                     account_number, 'OTHER', statement, amount, True)
 
                 # and this one debit
                 res = re.findall(reg2, account_copy, flags=re.M)
                 for (amount, emission, statement) in res:
                     csv += set_entry(emission, reference_emission,
-                            account_number, 'OTHER', statement, amount, False)
+                                     account_number, 'OTHER', statement, amount, False)
 
         file_parsed.close()
         print('Parsed: ' + filename)
@@ -123,6 +128,7 @@ def main():
 
     # rm tmp file
     os.remove('tmp.txt')
+
 
 if __name__ == "__main__":
     main()
