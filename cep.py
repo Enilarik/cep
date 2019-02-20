@@ -53,7 +53,7 @@ def main():
 
     # go through each file
     p = Path(sys.argv[1])
-    for filename in p.iterdir():
+    for filename in sorted(p.iterdir()):
         filename = str(filename)
         if filename.endswith('pdf') == False:
             continue
