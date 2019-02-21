@@ -3,6 +3,7 @@
 import sys
 import os
 import re
+from pprint import pprint
 from datetime import datetime
 from pathlib import Path
 
@@ -48,8 +49,15 @@ def main():
         ('DIRECTDEBIT', 'Prélèvements', True)
     ]
 
+    # stats
+    no_section_count = 0
+    section_count = 0
+    total_count = 0
+
+    # regex
     reg1 = r'^(\d\d\/\d\d)(.*)\s+([\d, ]+?)$'
     reg2 = r'^([\d, ]+?)(\d\d\/\d\d)(.*)$'
+    date_regex = r'\b([\d/]{10})\b'
 
     # go through each file
     p = Path(sys.argv[1])
@@ -57,6 +65,7 @@ def main():
         filename = str(filename)
         if filename.endswith('pdf') == False:
             continue
+
         print('Parsing: ' + filename)
 
         # escape spaces in name
@@ -74,17 +83,22 @@ def main():
         parsed = re.sub(r'(\n.| +)$', '', parsed, flags=re.M)
 
         # search for date of emission of the pdf
-        reference_emission = re.findall(r'\b([\d/]{10})\b', parsed)[0]
+        reference_emission = re.findall(date_regex, parsed)[0]
         reference_emission = datetime.strptime(reference_emission, '%d/%m/%Y')
+        print(' * Emission date is ' + reference_emission.strftime("%Y-%m-%d"))
 
         # search for owner to identify multiple accounts
         owner = re.findall(r'Identifiant client\s+(\D*)', parsed)[0].strip()
+        print(' * Account owner is ' + owner)
         account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
         accounts = re.findall(account_regex, parsed, flags=re.M)
+        print(' * There are {0} accounts:'.format(len(accounts)))
 
         for (full, account_number) in reversed(accounts):
             (parsed, _, account) = parsed.partition(full)
             account_number = re.sub(r'\D', '', account_number)
+            print('   * ' + account_number)
+
             account_copy = account
 
             # isolate and parse each section
@@ -113,7 +127,7 @@ def main():
                                      account_number, 'OTHER', statement, amount, False)
 
         file_parsed.close()
-        print('Parsed: ' + filename)
+        print('✅ Parse ok')
 
     # move bank lines with REMISE as credit
     csv = re.sub(r'(.*BANK;\* REMISE.*;);([\d, ]+)', r'\1\2;', csv)
