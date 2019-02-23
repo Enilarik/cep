@@ -114,13 +114,13 @@ def main():
 
             # nothing has been found above: test others things
             if no_section:
-                # this should always be credit
+                # this should alaways match debit
                 res = re.findall(reg1, account_copy, flags=re.M)
                 for (emission, statement, amount) in res:
                     csv += set_entry(emission, reference_emission,
                                      account_number, 'OTHER', statement, amount, True)
 
-                # and this one debit
+                # this should alaways match credit
                 res = re.findall(reg2, account_copy, flags=re.M)
                 for (amount, emission, statement) in res:
                     csv += set_entry(emission, reference_emission,
