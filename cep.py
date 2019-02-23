@@ -8,6 +8,18 @@ from datetime import datetime
 from pathlib import Path
 
 
+# - will match debits
+#                                           __
+#                                             |
+#
+# 18/10 CB CENTRE LECLERC  FACT 161014      13,40
+debit_regex = r'^(\d\d\/\d\d)(.*)\s+([\d, ]+?)$'
+
+# - will match credits
+#    __
+#   |
+# 150,0008/11 VIREMENT PAR INTERNET
+credit_regex = r'^([\d, ]+?)(\d\d\/\d\d)(.*)$'
 def set_year(emission, reference):
     # fake a leap year
     emission = datetime.strptime(emission + '00', '%d/%m%y')
@@ -106,7 +118,7 @@ def main():
             for (index, section, debit) in reversed(sections):
                 (account, _, result) = account.partition(section)
 
-                res = re.findall(reg1, result, flags=re.M)
+                res = re.findall(debit_regex, result, flags=re.M)
                 for (emission, statement, amount) in res:
                     no_section = False
                     csv += set_entry(emission, reference_emission,
@@ -115,13 +127,13 @@ def main():
             # nothing has been found above: test others things
             if no_section:
                 # this should alaways match debit
-                res = re.findall(reg1, account_copy, flags=re.M)
+                res = re.findall(debit_regex, account_copy, flags=re.M)
                 for (emission, statement, amount) in res:
                     csv += set_entry(emission, reference_emission,
                                      account_number, 'OTHER', statement, amount, True)
 
                 # this should alaways match credit
-                res = re.findall(reg2, account_copy, flags=re.M)
+                res = re.findall(credit_regex, account_copy, flags=re.M)
                 for (amount, emission, statement) in res:
                     csv += set_entry(emission, reference_emission,
                                      account_number, 'OTHER', statement, amount, False)
