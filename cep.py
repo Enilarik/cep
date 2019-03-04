@@ -10,40 +10,28 @@ from pathlib import Path
 
 
 # - will match owner
-# we use named regex group (?P<owner>...) to ease the extraction
 owner_regex = r'Identifiant client\s+(?P<owner>\D*)'
 
 # - will match dates
-#
 emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 
 # - will match debits
-#                                           __
-#                                             |
-#
 # 18/10 CB CENTRE LECLERC  FACT 161014      13,40
-debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)\s+(?P<op_amt>\d+\,\d{2})$'
+debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)\s+(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'
+# debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)\s+(?P<op_amt>[\d, ]+?)$'
 
 # - will match credits
-#    __
-#   |
 # 150,0008/11 VIREMENT PAR INTERNET
-credit_regex = r'^(?P<op_amt>\d+\,\d{2})(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
+credit_regex = r'^(?P<op_amt>[\d, ]+?)(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
+# credit_regex = r'^(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
 
 # - will match previous account balances (including date and balance)
-#                              __
-#                                    |
-#                               __
-#                                 |
 #   SOLDE PRECEDENT AU 15/10/14 56,05
 #   SOLDE PRECEDENT AU 15/10/14 1 575,00
 #   SOLDE PRECEDENT   0,00
-# we use named regex group (?P<exc_date>...) to ease the extraction
 previous_balance_regex = r'SOLDE PRECEDENT AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+(?P<bal_amt>[\d, ]+?)$'
 
 # - will match new account balances
-#                                                               __
-#                                                                 |
 #   NOUVEAU SOLDE CREDITEUR AU 15/11/14 (en francs : 1 026,44) 156,48
 new_balance_regex = r'NOUVEAU SOLDE CREDITEUR AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+\(en francs : (?P<bal_amt_fr>[\d, ]+)\)\s+(?P<bal_amt>[\d, ]+?)$'
 
