@@ -113,7 +113,12 @@ def search_accounts(statement):
     account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
     accounts = re.findall(account_regex, statement, flags=re.M)
     print(' * There are {0} accounts:'.format(len(accounts)))
-    return accounts
+
+    # cleanup account number for each returned account
+    # we use a syntax called 'list comprehension'
+    cleaned_accounts = [(full, re.sub(r'\D', '', account_number))
+                        for (full, account_number) in accounts]
+    return cleaned_accounts
 
 
 def search_emission_date(statement):
@@ -127,23 +132,38 @@ def search_emission_date(statement):
     return emission_date
 
 
-def search_previous_amount(account):
-    previous_amount = 0.0
-    previous_amount_date = None
+def search_previous_balance(account):
+    previous_balance_amount = D(0.0)
+    previous_balance_date = None
     # in the case of a new account (with no history) or a first statement...
     # ...this regex won't match
-    previous_amount = re.search(previous_amount_regex, account, flags=re.M)
+    previous_balance = re.search(previous_balance_regex, account, flags=re.M)
 
     # if the regex matched
-    if previous_amount:
-        previous_amount_date = previous_amount.group('exc_date').strip()
-        previous_amount = previous_amount.group('exc_amt').strip()
-        print(previous_amount_date)
-        print(previous_amount)
+    if previous_balance:
+        previous_balance_date = previous_balance.group('bal_dte').strip()
+        previous_balance_amount = previous_balance.group('bal_amt').strip()
+        previous_balance_amount = string_to_decimal(previous_balance_amount)
 
-    if not (previous_amount and previous_amount_date):
-        print('⚠️  couldn\'t find an history for this account')
-    return (previous_amount, previous_amount_date)
+    if not (previous_balance_amount and previous_balance_date):
+        print('⚠️  couldn\'t find a previous balance for this account')
+    return (previous_balance_amount, previous_balance_date)
+
+
+def search_new_balance(account):
+    new_balance_amount = D(0.0)
+    new_balance_date = None
+    new_balance = re.search(new_balance_regex, account, flags=re.M)
+
+    # if the regex matched
+    if new_balance:
+        new_balance_date = new_balance.group('bal_dte').strip()
+        new_balance_amount = new_balance.group('bal_amt').strip()
+        new_balance_amount = string_to_decimal(new_balance_amount)
+
+    if not (new_balance_amount and new_balance_date):
+        print('⚠️  couldn\'t find a new balance for this account')
+    return (new_balance_amount, new_balance_date)
 
 
 def set_year(emission, statement):
@@ -174,10 +194,6 @@ def set_entry(emission, statement_emission, account_number, index, statement,
     res += '\n'
     return res
 
-# TODO:
-# ligne avec * --> frais
-# verifier solde de départ (montant et date) matche avec solde fin fichier précédent
-# verifier coherence solde depart solde fin --> faire le calcul de toutes les operations (permet de voir si operations non parsees)
 
 def string_to_decimal(str):
     # replace french separator by american one
@@ -188,8 +204,11 @@ def string_to_decimal(str):
     nb = D(str)
     return nb
 
+
 def main():
     csv = 'date;account;type;statement;credit;debit\n'
+
+    errors = 0
 
     # go through each file of directory
     p = Path(sys.argv[1])
@@ -209,41 +228,72 @@ def main():
         # 4. search all accounts
         accounts = search_accounts(statement)
 
+        # 5 loop over each account
         for (full, account_number) in reversed(accounts):
-            (statement, _, account) = statement.partition(full)
-            account_number = re.sub(r'\D', '', account_number)
             print('   * ' + account_number)
 
-            # search for last amount
-            (previous_amount, previous_amount_date) = search_previous_amount(account)
+            (statement, _, account) = statement.partition(full)
 
-            # create a working copy
-            account_copy = account
+            # search for last/new balances
+            (previous_balance, previous_balance_date) = search_previous_balance(account)
+            (new_balance, new_balance_date) = search_new_balance(account)
+            total = D(0.0)
 
             # isolate and parse each section
             no_section = True
             for (index, section, debit) in reversed(sections):
                 (account, _, result) = account.partition(section)
 
-                res = re.findall(debit_regex, result, flags=re.M)
-                for (op_date, op_description, op_amount) in res:
+                section_ops = re.finditer(debit_regex, result, flags=re.M)
+                for section_op in section_ops:
                     no_section = False
+                    # extract regex groups
+                    op_date = section_op.group('op_dte').strip()
+                    op_description = section_op.group('op_dsc').strip()
+                    op_amount = section_op.group('op_amt').strip()
+                    # update total
+                    total = (total - string_to_decimal(op_amount)
+                             ) if debit else (total + string_to_decimal(op_amount))
                     csv += set_entry(op_date, emission_date,
                                      account_number, index, op_description, op_amount, debit)
 
             # nothing has been found above: test others things
             if no_section:
-                # this should alaways match debit
-                res = re.findall(debit_regex, account_copy, flags=re.M)
-                for (op_date, op_description, op_amount) in res:
+                # search all debit operations
+                debit_ops = re.finditer(debit_regex, account, flags=re.M)
+                for debit_op in debit_ops:
+                    # extract regex groups
+                    op_date = debit_op.group('op_dte').strip()
+                    op_description = debit_op.group('op_dsc').strip()
+                    op_amount = debit_op.group('op_amt').strip()
+                    # update total
+                    total -= string_to_decimal(op_amount)
+                    print('removing {0}'.format(string_to_decimal(op_amount)))
                     csv += set_entry(op_date, emission_date,
                                      account_number, 'OTHER', op_description, op_amount, True)
 
-                # this should alaways match credit
-                res = re.findall(credit_regex, account_copy, flags=re.M)
-                for (op_amount, op_date, op_description) in res:
+                # search all credit operations
+                credit_ops = re.finditer(credit_regex, account, flags=re.M)
+                for credit_op in credit_ops:
+                    # extract regex groups
+                    op_date = credit_op.group('op_dte').strip()
+                    op_description = credit_op.group('op_dsc').strip()
+                    op_amount = credit_op.group('op_amt').strip()
+                    # update total
+                    total += string_to_decimal(op_amount)
+                    print('adding {0}'.format(string_to_decimal(op_amount)))
                     csv += set_entry(op_date, emission_date,
                                      account_number, 'OTHER', op_description, op_amount, False)
+
+            # check that all operations were added
+            if not ((previous_balance + total) == new_balance):
+                print(
+                    '⚠️  inconsistency detected between imported operations and new balance')
+                errors += 1
+            print(previous_balance)
+            print(total)
+            print(previous_balance + total)
+            print(new_balance)
 
         current_file.close()
         print('✅ Parse ok')
@@ -261,9 +311,13 @@ def main():
 
     # rm tmp file
     os.remove('tmp.txt')
+    print('There were {0} errors'.format(errors))
 
 
 if __name__ == "__main__":
     main()
 
+# TODO:
+# ligne avec * --> frais
+#
 # alerte en cas de prélèvement habituel mais d'un montant inhabituel (17,89 --> 27,89)
