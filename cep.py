@@ -21,15 +21,15 @@ emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 #                                             |
 #
 # 18/10 CB CENTRE LECLERC  FACT 161014      13,40
-debit_regex = r'^(\d\d\/\d\d)(.*)\s+([\d, ]+?)$'
+debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)\s+(?P<op_amt>(\d+\,\d{2}))$'
 
 # - will match credits
 #    __
 #   |
 # 150,0008/11 VIREMENT PAR INTERNET
-credit_regex = r'^([\d, ]+?)(\d\d\/\d\d)(.*)$'
+credit_regex = r'^(?P<op_amt>(\d+\,\d{2}))(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
 
-# - will match previous account amounts (including date and amount)
+# - will match previous account balances (including date and balance)
 #                              __
 #                                    |
 #                               __
@@ -37,14 +37,14 @@ credit_regex = r'^([\d, ]+?)(\d\d\/\d\d)(.*)$'
 #   SOLDE PRECEDENT AU 15/10/14 56,05
 #   SOLDE PRECEDENT AU 15/10/14 1 575,00
 #   SOLDE PRECEDENT   0,00
-# we use named regex group (?P<owner>...) to ease the extraction
-previous_amount_regex = r'SOLDE PRECEDENT AU (?P<exc_date>\d\d\/\d\d\/\d\d)\s+(?P<exc_amt>[\d, ]+?)$'
+# we use named regex group (?P<exc_date>...) to ease the extraction
+previous_balance_regex = r'SOLDE PRECEDENT AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+(?P<bal_amt>[\d, ]+?)$'
 
-# - will match new account amounts
+# - will match new account balances
 #                                                               __
 #                                                                 |
 #   NOUVEAU SOLDE CREDITEUR AU 15/11/14 (en francs : 1 026,44) 156,48
-new_amount_regex = r'NOUVEAU SOLDE CREDITEUR AU (\D*)'
+new_balance_regex = r'NOUVEAU SOLDE CREDITEUR AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+\(en francs : (?P<bal_amt_fr>[\d, ]+)\)\s+(?P<bal_amt>[\d, ]+?)$'
 
 # stats
 no_section_count = 0
