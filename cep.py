@@ -8,6 +8,14 @@ from datetime import datetime
 from pathlib import Path
 
 
+# - will match owner
+# we use named regex group (?P<owner>...) to ease the extraction
+owner_regex = r'Identifiant client\s+(?P<owner>\D*)'
+
+# - will match dates
+#
+emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
+
 # - will match debits
 #                                           __
 #                                             |
@@ -20,25 +28,144 @@ debit_regex = r'^(\d\d\/\d\d)(.*)\s+([\d, ]+?)$'
 #   |
 # 150,0008/11 VIREMENT PAR INTERNET
 credit_regex = r'^([\d, ]+?)(\d\d\/\d\d)(.*)$'
-def set_year(emission, reference):
+
+# - will match previous account amounts (including date and amount)
+#                              __
+#                                    |
+#                               __
+#                                 |
+#   SOLDE PRECEDENT AU 15/10/14 56,05
+#   SOLDE PRECEDENT AU 15/10/14 1 575,00
+#   SOLDE PRECEDENT   0,00
+# we use named regex group (?P<owner>...) to ease the extraction
+previous_amount_regex = r'SOLDE PRECEDENT AU (?P<exc_date>\d\d\/\d\d\/\d\d)\s+(?P<exc_amt>[\d, ]+?)$'
+
+# - will match new account amounts
+#                                                               __
+#                                                                 |
+#   NOUVEAU SOLDE CREDITEUR AU 15/11/14 (en francs : 1 026,44) 156,48
+new_amount_regex = r'NOUVEAU SOLDE CREDITEUR AU (\D*)'
+
+# stats
+no_section_count = 0
+section_count = 0
+total_count = 0
+
+# sections
+sections = [
+    ('DEPOT', 'Opérations de dépôt', False),
+    ('TRANSFERT', 'Virements reçus', False),
+    ('CHECK', 'Paiements chèques', True),
+    ('BANK', 'Frais bancaires et cotisations', True),
+    ('DEBIT', 'Paiements carte bancaire', True),
+    ('WITHDRAWAL', 'Retraits carte bancaire', True),
+    ('DIRECTDEBIT', 'Prélèvements', True)
+]
+
+
+def parse_pdf_file(filename):
+    # force filename as string
+    filename = str(filename)
+    if filename.endswith('pdf') == False:
+        return (True, None)
+
+    print('Parsing: ' + filename)
+
+    # escape spaces in name
+    filename = re.sub(r'\s', '\\ ', filename)
+
+    # parse pdf
+    command = 'pdf2txt.py -M 200 -o tmp.txt ' + filename
+    os.system(command)
+
+    # open resulting file
+    parsed_file = open('tmp.txt', 'r')
+
+    # save reference to interact with the file outside of this function
+    global current_file
+    current_file = parsed_file
+
+    # read file content and return it
+    file_content = parsed_file.read()
+    return (False, file_content)
+
+
+def clean_statement(statement):
+    # remove lines with one character or less
+    re.sub(r'(\n.| +)$', '', statement, flags=re.M)
+    return statement
+
+
+def search_account_owner(statement):
+    # search for owner to identify multiple accounts
+    account_owner = re.search(owner_regex, statement)
+    # extract and strip
+    account_owner = account_owner.group('owner').strip()
+    print(' * Account owner is ' + account_owner)
+    return account_owner
+
+
+def search_accounts(statement):
+    # get owner
+    owner = search_account_owner(statement)
+
+    account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
+    accounts = re.findall(account_regex, statement, flags=re.M)
+    print(' * There are {0} accounts:'.format(len(accounts)))
+    return accounts
+
+
+def search_emission_date(statement):
+    emission_date = re.search(emission_date_regex, statement)
+    # extract and strip
+    emission_date = emission_date.group('date').strip()
+    # parse date
+    emission_date = datetime.strptime(
+        emission_date, '%d/%m/%Y')
+    print(' * Emission date is ' + emission_date.strftime('%d/%m/%Y'))
+    return emission_date
+
+
+def search_previous_amount(account):
+    previous_amount = 0.0
+    previous_amount_date = None
+    # in the case of a new account (with no history) or a first statement...
+    # ...this regex won't match
+    previous_amount = re.search(previous_amount_regex, account, flags=re.M)
+
+    # if the regex matched
+    if previous_amount:
+        previous_amount_date = previous_amount.group('exc_date').strip()
+        previous_amount = previous_amount.group('exc_amt').strip()
+        print(previous_amount_date)
+        print(previous_amount)
+
+    if not (previous_amount and previous_amount_date):
+        print('⚠️  couldn\'t find an history for this account')
+    return (previous_amount, previous_amount_date)
+
+
+def set_year(emission, statement):
     # fake a leap year
     emission = datetime.strptime(emission + '00', '%d/%m%y')
-    if emission.month <= reference.month:
-        emission = emission.replace(year=reference.year)
+    if emission.month <= statement.month:
+        emission = emission.replace(year=statement.year)
     else:
-        emission = emission.replace(year=reference.year - 1)
+        emission = emission.replace(year=statement.year - 1)
     return datetime.strftime(emission, '%d/%m/%Y')
 
 
 def set_amount(amount, debit):
+    # if debit, put amount AFTER the last ';' so it belongs in the right column
     if debit:
         return ';' + amount
+    # if credit, put amount BEFORE the last ';' so it belongs in the right column
     return amount + ';'
 
 
-def set_entry(emission, reference_emission, account_number, index, statement,
+def set_entry(emission, statement_emission, account_number, index, statement,
               amount, debit):
-    res = set_year(emission, reference_emission) + ';'
+    res = set_year(emission, statement_emission) + ';'
     res += account_number + ';'
     res += index + ';'
     res += statement.strip() + ';'
@@ -46,71 +173,42 @@ def set_entry(emission, reference_emission, account_number, index, statement,
     res += '\n'
     return res
 
+# TODO:
+# ligne avec * --> frais
+# verifier solde de départ (montant et date) matche avec solde fin fichier précédent
+# verifier coherence solde depart solde fin --> faire le calcul de toutes les operations (permet de voir si operations non parsees)
+
 
 def main():
     csv = 'date;account;type;statement;credit;debit\n'
 
-    # sections
-    sections = [
-        ('DEPOT', 'Opérations de dépôt', False),
-        ('TRANSFERT', 'Virements reçus', False),
-        ('CHECK', 'Paiements chèques', True),
-        ('BANK', 'Frais bancaires et cotisations', True),
-        ('DEBIT', 'Paiements carte bancaire', True),
-        ('WITHDRAWAL', 'Retraits carte bancaire', True),
-        ('DIRECTDEBIT', 'Prélèvements', True)
-    ]
-
-    # stats
-    no_section_count = 0
-    section_count = 0
-    total_count = 0
-
-    # regex
-    reg1 = r'^(\d\d\/\d\d)(.*)\s+([\d, ]+?)$'
-    reg2 = r'^([\d, ]+?)(\d\d\/\d\d)(.*)$'
-    date_regex = r'\b([\d/]{10})\b'
-
-    # go through each file
+    # go through each file of directory
     p = Path(sys.argv[1])
     for filename in sorted(p.iterdir()):
-        filename = str(filename)
-        if filename.endswith('pdf') == False:
+        # 1. parse statement file
+        (file_is_not_pdf, parsed_statement) = parse_pdf_file(filename)
+        if file_is_not_pdf == True:
+            # skip the current iteration
             continue
 
-        print('Parsing: ' + filename)
+        # 2. clean statement content
+        statement = clean_statement(parsed_statement)
 
-        # escape spaces in name
-        filename = re.sub(r'\s', '\\ ', filename)
+        # 3. search for date of emission of the statement
+        emission_date = search_emission_date(statement)
 
-        # parse pdf
-        command = 'pdf2txt.py -M 200 -o tmp.txt ' + filename
-        os.system(command)
-
-        # open parsed
-        file_parsed = open('tmp.txt', 'r')
-        parsed = file_parsed.read()
-
-        # remove lines with one character or less
-        parsed = re.sub(r'(\n.| +)$', '', parsed, flags=re.M)
-
-        # search for date of emission of the pdf
-        reference_emission = re.findall(date_regex, parsed)[0]
-        reference_emission = datetime.strptime(reference_emission, '%d/%m/%Y')
-        print(' * Emission date is ' + reference_emission.strftime("%Y-%m-%d"))
-
-        # search for owner to identify multiple accounts
-        owner = re.findall(r'Identifiant client\s+(\D*)', parsed)[0].strip()
-        print(' * Account owner is ' + owner)
-        account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
-        accounts = re.findall(account_regex, parsed, flags=re.M)
-        print(' * There are {0} accounts:'.format(len(accounts)))
+        # 4. search all accounts
+        accounts = search_accounts(statement)
 
         for (full, account_number) in reversed(accounts):
-            (parsed, _, account) = parsed.partition(full)
+            (statement, _, account) = statement.partition(full)
             account_number = re.sub(r'\D', '', account_number)
             print('   * ' + account_number)
 
+            # search for last amount
+            (previous_amount, previous_amount_date) = search_previous_amount(account)
+
+            # create a working copy
             account_copy = account
 
             # isolate and parse each section
@@ -119,26 +217,26 @@ def main():
                 (account, _, result) = account.partition(section)
 
                 res = re.findall(debit_regex, result, flags=re.M)
-                for (emission, statement, amount) in res:
+                for (op_date, op_description, op_amount) in res:
                     no_section = False
-                    csv += set_entry(emission, reference_emission,
-                                     account_number, index, statement, amount, debit)
+                    csv += set_entry(op_date, emission_date,
+                                     account_number, index, op_description, op_amount, debit)
 
             # nothing has been found above: test others things
             if no_section:
                 # this should alaways match debit
                 res = re.findall(debit_regex, account_copy, flags=re.M)
-                for (emission, statement, amount) in res:
-                    csv += set_entry(emission, reference_emission,
-                                     account_number, 'OTHER', statement, amount, True)
+                for (op_date, op_description, op_amount) in res:
+                    csv += set_entry(op_date, emission_date,
+                                     account_number, 'OTHER', op_description, op_amount, True)
 
                 # this should alaways match credit
                 res = re.findall(credit_regex, account_copy, flags=re.M)
-                for (amount, emission, statement) in res:
-                    csv += set_entry(emission, reference_emission,
-                                     account_number, 'OTHER', statement, amount, False)
+                for (op_amount, op_date, op_description) in res:
+                    csv += set_entry(op_date, emission_date,
+                                     account_number, 'OTHER', op_description, op_amount, False)
 
-        file_parsed.close()
+        current_file.close()
         print('✅ Parse ok')
 
     # move bank lines with REMISE as credit
@@ -158,3 +256,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# alerte en cas de prélèvement habituel mais d'un montant inhabituel (17,89 --> 27,89)
