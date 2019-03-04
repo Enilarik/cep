@@ -278,10 +278,11 @@ def main():
                 print(
                     '⚠️  inconsistency detected between imported operations and new balance')
                 errors += 1
-            print(previous_balance)
-            print(total)
-            print(previous_balance + total)
-            print(new_balance)
+                print('previous_balance is {0}'.format(previous_balance))
+                print('predicted new_balance is {0}'.format(
+                    previous_balance + total))
+                print('new_balance should be {0}'.format(new_balance))
+                print(account)
 
         current_file.close()
         print('✅ Parse ok')
