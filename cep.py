@@ -3,6 +3,7 @@
 import sys
 import os
 import re
+from decimal import Decimal as D
 from pprint import pprint
 from datetime import datetime
 from pathlib import Path
@@ -178,6 +179,14 @@ def set_entry(emission, statement_emission, account_number, index, statement,
 # verifier solde de départ (montant et date) matche avec solde fin fichier précédent
 # verifier coherence solde depart solde fin --> faire le calcul de toutes les operations (permet de voir si operations non parsees)
 
+def string_to_decimal(str):
+    # replace french separator by american one
+    str = str.replace(',', '.')
+    # remove useless spaces
+    str = str.replace(' ', '')
+    # convert to decimal
+    nb = D(str)
+    return nb
 
 def main():
     csv = 'date;account;type;statement;credit;debit\n'
