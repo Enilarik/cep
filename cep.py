@@ -22,13 +22,13 @@ emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 #                                             |
 #
 # 18/10 CB CENTRE LECLERC  FACT 161014      13,40
-debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)\s+(?P<op_amt>(\d+\,\d{2}))$'
+debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)\s+(?P<op_amt>\d+\,\d{2})$'
 
 # - will match credits
 #    __
 #   |
 # 150,0008/11 VIREMENT PAR INTERNET
-credit_regex = r'^(?P<op_amt>(\d+\,\d{2}))(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
+credit_regex = r'^(?P<op_amt>\d+\,\d{2})(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
 
 # - will match previous account balances (including date and balance)
 #                              __
