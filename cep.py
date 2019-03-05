@@ -33,22 +33,6 @@ previous_balance_regex = r'SOLDE PRECEDENT AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+(?
 #   NOUVEAU SOLDE CREDITEUR AU 15/11/14 (en francs : 1 026,44) 156,48
 new_balance_regex = r'NOUVEAU SOLDE CREDITEUR AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+\(en francs : (?P<bal_amt_fr>[\d, ]+)\)\s+(?P<bal_amt>[\d, ]+?)$'
 
-# stats
-no_section_count = 0
-section_count = 0
-total_count = 0
-
-# sections
-sections = [
-    ('DEPOT', 'Opérations de dépôt', False),
-    ('TRANSFERT', 'Virements reçus', False),
-    ('CHECK', 'Paiements chèques', True),
-    ('BANK', 'Frais bancaires et cotisations', True),
-    ('DEBIT', 'Paiements carte bancaire', True),
-    ('WITHDRAWAL', 'Retraits carte bancaire', True),
-    ('DIRECTDEBIT', 'Prélèvements', True)
-]
-
 
 def parse_pdf_file(filename):
     # force filename as string
@@ -165,9 +149,9 @@ def set_year(emission, statement):
 def set_amount(amount, debit):
     # if debit, put amount AFTER the last ';' so it belongs in the right column
     if debit:
-        return ';' + amount
+        return ';' + str(amount)
     # if credit, put amount BEFORE the last ';' so it belongs in the right column
-    return amount + ';'
+    return str(amount) + ';'
 
 
 def set_entry(emission, statement_emission, account_number, index, statement,
@@ -223,53 +207,38 @@ def main():
             # search for last/new balances
             (previous_balance, previous_balance_date) = search_previous_balance(account)
             (new_balance, new_balance_date) = search_new_balance(account)
+            # create total for inconsistency check
             total = D(0.0)
 
-            # isolate and parse each section
-            no_section = True
-            for (index, section, debit) in reversed(sections):
-                (account, _, result) = account.partition(section)
+            # search all debit operations
+            debit_ops = re.finditer(debit_regex, account, flags=re.M)
+            for debit_op in debit_ops:
+                # extract regex groups
+                op_date = debit_op.group('op_dte').strip()
+                op_description = debit_op.group('op_dsc').strip()
+                op_amount = debit_op.group('op_amt').strip()
+                # convert amount to regular Decimal
+                op_amount = string_to_decimal(op_amount)
+                # update total
+                total -= op_amount
+                print('removing {0}'.format(op_amount))
+                csv += set_entry(op_date, emission_date,
+                                 account_number, 'OTHER', op_description, op_amount, True)
 
-                section_ops = re.finditer(debit_regex, result, flags=re.M)
-                for section_op in section_ops:
-                    no_section = False
-                    # extract regex groups
-                    op_date = section_op.group('op_dte').strip()
-                    op_description = section_op.group('op_dsc').strip()
-                    op_amount = section_op.group('op_amt').strip()
-                    # update total
-                    total = (total - string_to_decimal(op_amount)
-                             ) if debit else (total + string_to_decimal(op_amount))
-                    csv += set_entry(op_date, emission_date,
-                                     account_number, index, op_description, op_amount, debit)
-
-            # nothing has been found above: test others things
-            if no_section:
-                # search all debit operations
-                debit_ops = re.finditer(debit_regex, account, flags=re.M)
-                for debit_op in debit_ops:
-                    # extract regex groups
-                    op_date = debit_op.group('op_dte').strip()
-                    op_description = debit_op.group('op_dsc').strip()
-                    op_amount = debit_op.group('op_amt').strip()
-                    # update total
-                    total -= string_to_decimal(op_amount)
-                    print('removing {0}'.format(string_to_decimal(op_amount)))
-                    csv += set_entry(op_date, emission_date,
-                                     account_number, 'OTHER', op_description, op_amount, True)
-
-                # search all credit operations
-                credit_ops = re.finditer(credit_regex, account, flags=re.M)
-                for credit_op in credit_ops:
-                    # extract regex groups
-                    op_date = credit_op.group('op_dte').strip()
-                    op_description = credit_op.group('op_dsc').strip()
-                    op_amount = credit_op.group('op_amt').strip()
-                    # update total
-                    total += string_to_decimal(op_amount)
-                    print('adding {0}'.format(string_to_decimal(op_amount)))
-                    csv += set_entry(op_date, emission_date,
-                                     account_number, 'OTHER', op_description, op_amount, False)
+            # search all credit operations
+            credit_ops = re.finditer(credit_regex, account, flags=re.M)
+            for credit_op in credit_ops:
+                # extract regex groups
+                op_date = credit_op.group('op_dte').strip()
+                op_description = credit_op.group('op_dsc').strip()
+                op_amount = credit_op.group('op_amt').strip()
+                # convert amount to regular Decimal
+                op_amount = string_to_decimal(op_amount)
+                # update total
+                total += op_amount
+                print('adding {0}'.format(op_amount))
+                csv += set_entry(op_date, emission_date,
+                                 account_number, 'OTHER', op_description, op_amount, False)
 
             # check that all operations were added
             if not ((previous_balance + total) == new_balance):
