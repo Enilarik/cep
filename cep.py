@@ -3,6 +3,7 @@
 import sys
 import os
 import re
+import csv
 from decimal import Decimal as D
 from pprint import pprint
 from datetime import datetime
@@ -136,33 +137,33 @@ def search_new_balance(account):
     return (new_balance_amount, new_balance_date)
 
 
-def set_year(emission, statement):
+def set_year(emission, statement_emission_date):
     # fake a leap year
     emission = datetime.strptime(emission + '00', '%d/%m%y')
-    if emission.month <= statement.month:
-        emission = emission.replace(year=statement.year)
+    if emission.month <= statement_emission_date.month:
+        emission = emission.replace(year=statement_emission_date.year)
     else:
-        emission = emission.replace(year=statement.year - 1)
+        emission = emission.replace(year=statement_emission_date.year - 1)
     return datetime.strftime(emission, '%d/%m/%Y')
 
 
 def set_amount(amount, debit):
-    # if debit, put amount AFTER the last ';' so it belongs in the right column
     if debit:
-        return ';' + str(amount)
-    # if credit, put amount BEFORE the last ';' so it belongs in the right column
-    return str(amount) + ';'
+        return ['', str(amount)]
+    return [str(amount), '']
 
 
-def set_entry(emission, statement_emission, account_number, index, statement,
-              amount, debit):
-    res = set_year(emission, statement_emission) + ';'
-    res += account_number + ';'
-    res += index + ';'
-    res += statement.strip() + ';'
-    res += set_amount(amount, debit)
-    res += '\n'
-    return res
+def create_operation_entry(op_date, statement_emission_date, account_number, op_type, op_description,
+                           op_amount, debit):
+    op = [
+        set_year(op_date, statement_emission_date),
+        account_number,
+        op_type,
+        op_description.strip(),
+        # the star '*' operator is like spread '...' in JS
+        *set_amount(op_amount, debit)
+    ]
+    return op
 
 
 def string_to_decimal(str):
@@ -176,8 +177,8 @@ def string_to_decimal(str):
 
 
 def main():
-    csv = 'date;account;type;statement;credit;debit\n'
-
+    csv_to_write = 'date;account;type;description;credit;debit\n'
+    operations = []
     errors = 0
 
     # go through each file of directory
@@ -222,8 +223,8 @@ def main():
                 # update total
                 total -= op_amount
                 print('removing {0}'.format(op_amount))
-                csv += set_entry(op_date, emission_date,
-                                 account_number, 'OTHER', op_description, op_amount, True)
+                operations.append(create_operation_entry(op_date, emission_date,
+                                                         account_number, 'OTHER', op_description, op_amount, True))
 
             # search all credit operations
             credit_ops = re.finditer(credit_regex, account, flags=re.M)
@@ -237,10 +238,10 @@ def main():
                 # update total
                 total += op_amount
                 print('adding {0}'.format(op_amount))
-                csv += set_entry(op_date, emission_date,
-                                 account_number, 'OTHER', op_description, op_amount, False)
+                operations.append(create_operation_entry(op_date, emission_date,
+                                                         account_number, 'OTHER', op_description, op_amount, False))
 
-            # check that all operations were added
+            # check inconsistencies
             if not ((previous_balance + total) == new_balance):
                 print(
                     '⚠️  inconsistency detected between imported operations and new balance')
@@ -254,16 +255,11 @@ def main():
         current_file.close()
         print('✅ Parse ok')
 
-    # move bank lines with REMISE as credit
-    csv = re.sub(r'(.*BANK;\* REMISE.*;);([\d, ]+)', r'\1\2;', csv)
-
-    # remove not useful information for debit
-    csv = re.sub(r'(.*)CB (.*\w) +FACT \d{6}(.*)', r'\1\2\3', csv)
-
     # write result in file
-    file_result = open('./compte.csv', 'w')
-    file_result.write(csv)
-    file_result.close()
+    with open('output.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerows(operations)
+    print('Imported {0} operations'.format(len(operations)))
 
     # rm tmp file
     os.remove('tmp.txt')
