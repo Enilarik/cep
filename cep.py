@@ -17,13 +17,11 @@ emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 
 # - will match debits
 # 18/10 CB CENTRE LECLERC  FACT 161014      13,40
-debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)\s+(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'
-# debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)\s+(?P<op_amt>[\d, ]+?)$'
+debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*?)\s+(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'
 
 # - will match credits
 # 150,0008/11 VIREMENT PAR INTERNET
-credit_regex = r'^(?P<op_amt>[\d, ]+?)(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
-# credit_regex = r'^(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
+credit_regex = r'^(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
 
 # - will match previous account balances (including date and balance)
 #   SOLDE PRECEDENT AU 15/10/14 56,05
