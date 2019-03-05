@@ -161,7 +161,7 @@ def set_operation_amount(amount, debit):
 
 
 def search_operation_type(op_description):
-    op_description.upper()
+    op_description = op_description.upper()
     # bank fees, international fees, subscription fee to bouquet, etc.
     if ((op_description.startswith('*'))):
         type = 'BANK'
