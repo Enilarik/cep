@@ -156,8 +156,8 @@ def set_operation_year(emission, statement_emission_date):
 
 def set_operation_amount(amount, debit):
     if debit:
-        return ['', str(amount)]
-    return [str(amount), '']
+        return ['', decimal_to_string(amount)]
+    return [decimal_to_string(amount), '']
 
 
 def search_operation_type(op_description):
@@ -217,13 +217,20 @@ def create_operation_entry(op_date, statement_emission_date, account_number, op_
 
 
 def string_to_decimal(str):
-        # replace french separator by american one
+    # replace french separator by english one (otherwise there is a conversion syntax error)
     str = str.replace(',', '.')
     # remove useless spaces
     str = str.replace(' ', '')
     # convert to decimal
     nb = D(str)
     return nb
+
+
+def decimal_to_string(dec):
+    dec_as_str = str(dec)
+    # replace english separator by french one
+    dec_as_str = dec_as_str.replace('.', ',')
+    return dec_as_str
 
 
 def main():
@@ -324,8 +331,8 @@ def main():
 
     # write result in file
     with open('output.csv', 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerows(operations)
+        # we use ';' separator to avoid conflicts with amounts' ','
+        writer = csv.writer(f, delimiter=';')
     print('OPERATIONS({0})'.format(len(operations)))
     print(
         'OTHER({0})/BANK({1})/DEPOSIT({2})/WIRETRANSFER({3})/CHECK({4})/CARDDEBIT({5})/WITHDRAWAL({6})/DIRECTDEBIT({7})'
