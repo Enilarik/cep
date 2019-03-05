@@ -234,7 +234,6 @@ def decimal_to_string(dec):
 
 
 def main():
-    csv_to_write = 'date;account;type;description;credit;debit\n'
     operations = []
     errors = 0
 
@@ -333,6 +332,9 @@ def main():
     with open('output.csv', 'w', newline='') as f:
         # we use ';' separator to avoid conflicts with amounts' ','
         writer = csv.writer(f, delimiter=';')
+        writer.writerows(
+            [['date', 'account', 'type', 'description', 'credit', 'debit'], *operations]
+        )
     print('OPERATIONS({0})'.format(len(operations)))
     print(
         'OTHER({0})/BANK({1})/DEPOSIT({2})/WIRETRANSFER({3})/CHECK({4})/CARDDEBIT({5})/WITHDRAWAL({6})/DIRECTDEBIT({7})'
