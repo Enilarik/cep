@@ -137,7 +137,14 @@ def search_new_balance(account):
     return (new_balance_amount, new_balance_date)
 
 
-def set_year(emission, statement_emission_date):
+#                              _   _
+#    ___  _ __   ___ _ __ __ _| |_(_) ___  _ __
+#   / _ \| '_ \ / _ \ '__/ _` | __| |/ _ \| '_ \
+#  | (_) | |_) |  __/ | | (_| | |_| | (_) | | | |
+#   \___/| .__/ \___|_|  \__,_|\__|_|\___/|_| |_|
+#        |_|
+#
+def set_operation_year(emission, statement_emission_date):
     # fake a leap year
     emission = datetime.strptime(emission + '00', '%d/%m%y')
     if emission.month <= statement_emission_date.month:
@@ -147,27 +154,69 @@ def set_year(emission, statement_emission_date):
     return datetime.strftime(emission, '%d/%m/%Y')
 
 
-def set_amount(amount, debit):
+def set_operation_amount(amount, debit):
     if debit:
         return ['', str(amount)]
     return [str(amount), '']
 
 
-def create_operation_entry(op_date, statement_emission_date, account_number, op_type, op_description,
+def search_operation_type(op_description):
+    # bank fees, subscription fee tp bouquet, etc.
+    if ((op_description.startswith('* REMISE')) or (op_description.startswith('* COTIS')) or (op_description.startswith('* COM'))):
+        type = 'BANK'
+        global bank_op_count
+        bank_op_count += 1
+    # incoming / outcoming wire transfers: salary, p2p, etc.
+    elif ((op_description.startswith('VIREMENT')) or (op_description.startswith('VIR SEPA')) or (op_description.startswith('Virement par mobile'))):
+        type = 'WIRETRANSFER'
+        global wire_transfer_op_count
+        wire_transfer_op_count += 1
+    # check deposits / payments
+    elif ((op_description.startswith('CHEQUE')) or (op_description.startswith('REMISE CHEQUES'))):
+        type = 'CHECK'
+        global check_op_count
+        check_op_count += 1
+    # payments made via debit card
+    elif ((op_description.startswith('CB'))):
+        type = 'CARDDEBIT'
+        global card_debit_op_count
+        card_debit_op_count += 1
+    # withdrawals
+    elif ((op_description.startswith('RETRAIT DAB')) or (op_description.startswith('RET DAB'))):
+        type = 'WITHDRAWAL'
+        global withdrawal_op_count
+        withdrawal_op_count += 1
+    # direct debits
+    elif ((op_description.startswith('PRLV'))):
+        type = 'DIRECTDEBIT'
+        global direct_debit_op_count
+        direct_debit_op_count += 1
+    else:
+        type = 'OTHER'
+        global other_op_count
+        other_op_count += 1
+
+    return type
+
+
+def create_operation_entry(op_date, statement_emission_date, account_number, op_description,
                            op_amount, debit):
+    # search the operation type according to its description
+    op_type = search_operation_type(op_description)
+
     op = [
-        set_year(op_date, statement_emission_date),
+        set_operation_year(op_date, statement_emission_date),
         account_number,
         op_type,
         op_description.strip(),
         # the star '*' operator is like spread '...' in JS
-        *set_amount(op_amount, debit)
+        *set_operation_amount(op_amount, debit)
     ]
     return op
 
 
 def string_to_decimal(str):
-    # replace french separator by american one
+        # replace french separator by american one
     str = str.replace(',', '.')
     # remove useless spaces
     str = str.replace(' ', '')
@@ -180,6 +229,23 @@ def main():
     csv_to_write = 'date;account;type;description;credit;debit\n'
     operations = []
     errors = 0
+
+    global other_op_count
+    other_op_count = 0
+    global bank_op_count
+    bank_op_count = 0
+    global deposit_op_count
+    deposit_op_count = 0
+    global wire_transfer_op_count
+    wire_transfer_op_count = 0
+    global check_op_count
+    check_op_count = 0
+    global card_debit_op_count
+    card_debit_op_count = 0
+    global withdrawal_op_count
+    withdrawal_op_count = 0
+    global direct_debit_op_count
+    direct_debit_op_count = 0
 
     # go through each file of directory
     p = Path(sys.argv[1])
@@ -222,9 +288,9 @@ def main():
                 op_amount = string_to_decimal(op_amount)
                 # update total
                 total -= op_amount
-                print('removing {0}'.format(op_amount))
+                # print('debit {0}'.format(op_amount))
                 operations.append(create_operation_entry(op_date, emission_date,
-                                                         account_number, 'OTHER', op_description, op_amount, True))
+                                                         account_number, op_description, op_amount, True))
 
             # search all credit operations
             credit_ops = re.finditer(credit_regex, account, flags=re.M)
@@ -237,9 +303,9 @@ def main():
                 op_amount = string_to_decimal(op_amount)
                 # update total
                 total += op_amount
-                print('adding {0}'.format(op_amount))
+                # print('credit {0}'.format(op_amount))
                 operations.append(create_operation_entry(op_date, emission_date,
-                                                         account_number, 'OTHER', op_description, op_amount, False))
+                                                         account_number, op_description, op_amount, False))
 
             # check inconsistencies
             if not ((previous_balance + total) == new_balance):
@@ -259,17 +325,28 @@ def main():
     with open('output.csv', 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerows(operations)
-    print('Imported {0} operations'.format(len(operations)))
+    print('OPERATIONS({0})'.format(len(operations)))
+    print(
+        'OTHER({0})/BANK({1})/DEPOSIT({2})/WIRETRANSFER({3})/CHECK({4})/CARDDEBIT({5})/WITHDRAWAL({6})/DIRECTDEBIT({7})'
+        .format(
+            other_op_count,
+            bank_op_count,
+            deposit_op_count,
+            wire_transfer_op_count,
+            check_op_count,
+            card_debit_op_count,
+            withdrawal_op_count,
+            direct_debit_op_count
+        )
+    )
+    print('ERRORS({0})'.format(errors))
 
     # rm tmp file
     os.remove('tmp.txt')
-    print('There were {0} errors'.format(errors))
 
 
 if __name__ == "__main__":
     main()
 
 # TODO:
-# ligne avec * --> frais
-#
 # alerte en cas de prélèvement habituel mais d'un montant inhabituel (17,89 --> 27,89)
