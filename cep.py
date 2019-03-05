@@ -161,13 +161,14 @@ def set_operation_amount(amount, debit):
 
 
 def search_operation_type(op_description):
-    # bank fees, subscription fee tp bouquet, etc.
-    if ((op_description.startswith('* REMISE')) or (op_description.startswith('* COTIS')) or (op_description.startswith('* COM'))):
+    op_description.upper()
+    # bank fees, international fees, subscription fee to bouquet, etc.
+    if ((op_description.startswith('*'))):
         type = 'BANK'
         global bank_op_count
         bank_op_count += 1
     # incoming / outcoming wire transfers: salary, p2p, etc.
-    elif ((op_description.startswith('VIREMENT')) or (op_description.startswith('VIR SEPA')) or (op_description.startswith('Virement par mobile'))):
+    elif ((op_description.startswith('VIREMENT')) or (op_description.startswith('VIR SEPA'))):
         type = 'WIRETRANSFER'
         global wire_transfer_op_count
         wire_transfer_op_count += 1
