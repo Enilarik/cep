@@ -167,13 +167,18 @@ def search_operation_type(op_description):
         type = 'BANK'
         global bank_op_count
         bank_op_count += 1
+    # bank fees, international fees, subscription fee to bouquet, etc.
+    elif ((op_description.startswith('VERSEMENT'))):
+        type = 'DEPOSIT'
+        global deposit_op_count
+        deposit_op_count += 1
     # incoming / outcoming wire transfers: salary, p2p, etc.
     elif ((op_description.startswith('VIREMENT')) or (op_description.startswith('VIR SEPA'))):
         type = 'WIRETRANSFER'
         global wire_transfer_op_count
         wire_transfer_op_count += 1
     # check deposits / payments
-    elif ((op_description.startswith('CHEQUE')) or (op_description.startswith('REMISE CHEQUES'))):
+    elif ((op_description.startswith('CHEQUE')) or (op_description.startswith('REMISE CHEQUES')) or (op_description.startswith('REMISE CHQ'))):
         type = 'CHECK'
         global check_op_count
         check_op_count += 1
