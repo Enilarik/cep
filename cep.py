@@ -333,6 +333,9 @@ def main():
         current_file.close()
         print('✅ Parse ok')
 
+    # sort everything by date
+    operations.sort(key=lambda x: datetime.strptime(x[0], '%d/%m/%Y'))
+
     # write result in file
     with open('output.csv', 'w', newline='') as f:
         # we use ';' separator to avoid conflicts with amounts' ','
