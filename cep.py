@@ -177,7 +177,7 @@ def search_operation_type(op_description):
         type = 'BANK'
         global bank_op_count
         bank_op_count += 1
-    # bank fees, international fees, subscription fee to bouquet, etc.
+    # cash deposits on the account
     elif ((op_description.startswith('VERSEMENT'))):
         type = 'DEPOSIT'
         global deposit_op_count

@@ -1,12 +1,13 @@
-# cep - c(aisse d') e(pargne) p(arser)
+# CEP
+(CEP stands for *Caisse d'Epargne Parser*)
 
-This script aims at parsing PDF statements from the Caisse d'Épargne (a french banking group).
-Extracted operations are gathered into a 6 columns CSV file:
+**CEP aims at parsing PDF statements from the Caisse d'Épargne (a french banking group) and gathering extracted operations into a CSV file**
+What you'll get at the end is a 6 columns CSV file:
 - date of the operation
 - account number concerned by the operation
 - operation type:
-    - `BANK`: bank fees, international operation fees, etc. 
-    - `DEPOSIT`: money deposit on the account
+    - `BANK`: bank fees, international operation fees, etc.
+    - `DEPOSIT`: cash deposits on the account
     - `WIRETRANSFER`: incoming / outcoming wiretransfers
     - `CHECK`: check deposits / payments
     - `CARDDEBIT`: payments made via debit card
@@ -17,7 +18,7 @@ Extracted operations are gathered into a 6 columns CSV file:
 - credit amount (if credit)
 - debit amount (if debit)
 
-As a fork from Adrien's original work ([zarov/cep](https://github.com/zarov/cep)), my version brings some improvements and evolutions:
+As a fork from Adrien's original work ([here](https://github.com/zarov/cep)), my version brings some improvements and evolutions:
 - better operation parsing (originally, CEP was sometimes detecting operations that were not operations!)
 - operation type detection (the in place detection wasn't working at all 🤷‍♂️)
 - inconsistency checks (hence, CEP verifies that all operations are correctly parsed)
