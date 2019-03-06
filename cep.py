@@ -34,6 +34,16 @@ previous_balance_regex = r'SOLDE PRECEDENT AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+(?
 #   NOUVEAU SOLDE CREDITEUR AU 15/11/14 (en francs : 1 026,44) 156,48
 new_balance_regex = r'NOUVEAU SOLDE CREDITEUR AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+\(en francs : (?P<bal_amt_fr>[\d, ]+)\)\s+(?P<bal_amt>[\d, ]+?)$'
 
+# counters for stats
+other_op_count = 0
+bank_op_count = 0
+deposit_op_count = 0
+wire_transfer_op_count = 0
+check_op_count = 0
+card_debit_op_count = 0
+withdrawal_op_count = 0
+direct_debit_op_count = 0
+
 
 def parse_pdf_file(filename):
     # force filename as string
@@ -242,23 +252,6 @@ def main():
     operations = []
     errors = 0
 
-    global other_op_count
-    other_op_count = 0
-    global bank_op_count
-    bank_op_count = 0
-    global deposit_op_count
-    deposit_op_count = 0
-    global wire_transfer_op_count
-    wire_transfer_op_count = 0
-    global check_op_count
-    check_op_count = 0
-    global card_debit_op_count
-    card_debit_op_count = 0
-    global withdrawal_op_count
-    withdrawal_op_count = 0
-    global direct_debit_op_count
-    direct_debit_op_count = 0
-
     # go through each file of directory
     p = Path(sys.argv[1])
     for filename in sorted(p.iterdir()):
@@ -365,6 +358,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# TODO:
-# alerte en cas de prélèvement habituel mais d'un montant inhabituel (17,89 --> 27,89)
