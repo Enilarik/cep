@@ -1,7 +1,8 @@
 # CEP
 (CEP stands for *Caisse d'Epargne Parser*)
 
-**CEP aims at parsing PDF statements from the Caisse d'Épargne (a french banking group) and gathering extracted operations into a CSV file**
+**CEP aims at parsing PDF statements from the Caisse d'Épargne (a french banking group) and gathering extracted operations into a CSV file.**
+
 What you'll get at the end is a 6 columns CSV file:
 - date of the operation
 - account number concerned by the operation
