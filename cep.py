@@ -12,6 +12,7 @@ from pathlib import Path
 
 # - will match owner
 owner_regex = r'Identifiant client\s+(?P<owner>\D*)'
+owner_regex = r'^(?P<title>MR|MME|MLLE)\s+(?P<owner>\D*?)$'
 
 # - will match dates
 emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
@@ -80,7 +81,9 @@ def clean_statement(statement):
 
 def search_account_owner(statement):
     # search for owner to identify multiple accounts
-    account_owner = re.search(owner_regex, statement)
+    account_owner = re.search(owner_regex, statement, flags=re.M)
+    if (not account_owner):
+        raise ValueError('No account owner was found.')
     # extract and strip
     account_owner = account_owner.group('owner').strip()
     print(' * Account owner is ' + account_owner)
