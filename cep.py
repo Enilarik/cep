@@ -19,7 +19,7 @@ emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 
 # - will match debits
 # 18/10 CB CENTRE LECLERC  FACT 161014      13,40
-debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*?)\s+(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'
+debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*?)\W+(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'
 
 # - will match credits
 # 150,0008/11 VIREMENT PAR INTERNET
@@ -34,6 +34,9 @@ previous_balance_regex = r'SOLDE PRECEDENT AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+(?
 # - will match new account balances
 #   NOUVEAU SOLDE CREDITEUR AU 15/11/14 (en francs : 1 026,44) 156,48
 new_balance_regex = r'NOUVEAU SOLDE CREDITEUR AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+\(en francs : (?P<bal_amt_fr>[\d, ]+)\)\s+(?P<bal_amt>[\d, ]+?)$'
+
+one_character_line_regex = r'^(\n.| +)$'
+
 
 # counters for stats
 other_op_count = 0
@@ -75,7 +78,7 @@ def parse_pdf_file(filename):
 
 def clean_statement(statement):
     # remove lines with one character or less
-    re.sub(r'(\n.| +)$', '', statement, flags=re.M)
+    re.sub(one_character_line_regex, '', statement, flags=re.M)
     return statement
 
 
@@ -317,6 +320,7 @@ def main():
 
             # check inconsistencies
             if not ((previous_balance + total) == new_balance):
+                print(account)
                 print(
                     '⚠️  inconsistency detected between imported operations and new balance')
                 errors += 1
@@ -324,7 +328,6 @@ def main():
                 print('predicted new_balance is {0}'.format(
                     previous_balance + total))
                 print('new_balance should be {0}'.format(new_balance))
-                print(account)
 
         current_file.close()
         print('✅ Parse ok')
