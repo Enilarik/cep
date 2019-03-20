@@ -11,8 +11,10 @@ from pathlib import Path
 
 
 # - will match owner
-owner_regex = r'Identifiant client\s+(?P<owner>\D*)'
-owner_regex = r'^(?P<title>MR|MME|MLLE)\s+(?P<owner>\D*?)$'
+# prior to march 2019
+owner_regex_v1 = r'Identifiant client\s+(?P<owner>\D*)'
+# after march 2019
+owner_regex_v2 = r'^(?P<title>MR|MME|MLLE)\s+(?P<owner>\D*?)$'
 
 # - will match dates
 emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
@@ -82,9 +84,9 @@ def clean_statement(statement):
     return statement
 
 
-def search_account_owner(statement):
+def search_account_owner(regex_to_use, statement):
     # search for owner to identify multiple accounts
-    account_owner = re.search(owner_regex, statement, flags=re.M)
+    account_owner = re.search(regex_to_use, statement, flags=re.M)
     if (not account_owner):
         raise ValueError('No account owner was found.')
     # extract and strip
@@ -95,12 +97,18 @@ def search_account_owner(statement):
 
 def search_accounts(statement):
     # get owner
-    owner = search_account_owner(statement)
+    owner = search_account_owner(owner_regex_v1, statement)
 
     account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
     accounts = re.findall(account_regex, statement, flags=re.M)
-    print(' * There are {0} accounts:'.format(len(accounts)))
 
+    # no accounts found, try to get owner with other regex
+    if (len(accounts) == 0):
+        owner = search_account_owner(owner_regex_v2, statement)
+        account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
+        accounts = re.findall(account_regex, statement, flags=re.M)
+
+    print(' * There are {0} accounts: '.format(len(accounts)))
     # cleanup account number for each returned account
     # we use a syntax called 'list comprehension'
     cleaned_accounts = [(full, re.sub(r'\D', '', account_number))
