@@ -184,40 +184,40 @@ def set_operation_amount(amount, debit):
     return [decimal_to_string(amount), '']
 
 
-def search_operation_type(op_description):
-    op_description = op_description.upper()
+def search_operation_type(op_label):
+    op_label = op_label.upper()
     # bank fees, international fees, subscription fee to bouquet, etc.
-    if ((op_description.startswith('*'))):
+    if ((op_label.startswith('*'))):
         type = 'BANK'
         global bank_op_count
         bank_op_count += 1
     # cash deposits on the account
-    elif ((op_description.startswith('VERSEMENT'))):
+    elif ((op_label.startswith('VERSEMENT'))):
         type = 'DEPOSIT'
         global deposit_op_count
         deposit_op_count += 1
     # incoming / outcoming wire transfers: salary, p2p, etc.
-    elif ((op_description.startswith('VIREMENT')) or (op_description.startswith('VIR SEPA'))):
+    elif ((op_label.startswith('VIREMENT')) or (op_label.startswith('VIR SEPA'))):
         type = 'WIRETRANSFER'
         global wire_transfer_op_count
         wire_transfer_op_count += 1
     # check deposits / payments
-    elif ((op_description.startswith('CHEQUE')) or (op_description.startswith('REMISE CHEQUES')) or (op_description.startswith('REMISE CHQ'))):
+    elif ((op_label.startswith('CHEQUE')) or (op_label.startswith('REMISE CHEQUES')) or (op_label.startswith('REMISE CHQ'))):
         type = 'CHECK'
         global check_op_count
         check_op_count += 1
     # payments made via debit card
-    elif ((op_description.startswith('CB'))):
+    elif ((op_label.startswith('CB'))):
         type = 'CARDDEBIT'
         global card_debit_op_count
         card_debit_op_count += 1
     # withdrawals
-    elif ((op_description.startswith('RETRAIT DAB')) or (op_description.startswith('RET DAB'))):
+    elif ((op_label.startswith('RETRAIT DAB')) or (op_label.startswith('RET DAB'))):
         type = 'WITHDRAWAL'
         global withdrawal_op_count
         withdrawal_op_count += 1
     # direct debits
-    elif ((op_description.startswith('PRLV'))):
+    elif ((op_label.startswith('PRLV'))):
         type = 'DIRECTDEBIT'
         global direct_debit_op_count
         direct_debit_op_count += 1
@@ -229,16 +229,16 @@ def search_operation_type(op_description):
     return type
 
 
-def create_operation_entry(op_date, statement_emission_date, account_number, op_description,
+def create_operation_entry(op_date, statement_emission_date, account_number, op_label,
                            op_amount, debit):
-    # search the operation type according to its description
-    op_type = search_operation_type(op_description)
+    # search the operation type according to its label
+    op_type = search_operation_type(op_label)
 
     op = [
         set_operation_year(op_date, statement_emission_date),
         account_number,
         op_type,
-        op_description.strip(),
+        op_label.strip(),
         # the star '*' operator is like spread '...' in JS
         *set_operation_amount(op_amount, debit)
     ]
@@ -301,7 +301,7 @@ def main():
             for debit_op in debit_ops:
                 # extract regex groups
                 op_date = debit_op.group('op_dte').strip()
-                op_description = debit_op.group('op_dsc').strip()
+                op_label = debit_op.group('op_dsc').strip()
                 op_amount = debit_op.group('op_amt').strip()
                 # convert amount to regular Decimal
                 op_amount = string_to_decimal(op_amount)
@@ -309,14 +309,14 @@ def main():
                 total -= op_amount
                 # print('debit {0}'.format(op_amount))
                 operations.append(create_operation_entry(op_date, emission_date,
-                                                         account_number, op_description, op_amount, True))
+                                                         account_number, op_label, op_amount, True))
 
             # search all credit operations
             credit_ops = re.finditer(credit_regex, account, flags=re.M)
             for credit_op in credit_ops:
                 # extract regex groups
                 op_date = credit_op.group('op_dte').strip()
-                op_description = credit_op.group('op_dsc').strip()
+                op_label = credit_op.group('op_dsc').strip()
                 op_amount = credit_op.group('op_amt').strip()
                 # convert amount to regular Decimal
                 op_amount = string_to_decimal(op_amount)
@@ -324,7 +324,7 @@ def main():
                 total += op_amount
                 # print('credit {0}'.format(op_amount))
                 operations.append(create_operation_entry(op_date, emission_date,
-                                                         account_number, op_description, op_amount, False))
+                                                         account_number, op_label, op_amount, False))
 
             # check inconsistencies
             if not ((previous_balance + total) == new_balance):
@@ -348,7 +348,7 @@ def main():
         # we use ';' separator to avoid conflicts with amounts' ','
         writer = csv.writer(f, delimiter=';')
         writer.writerows(
-            [['date', 'account', 'type', 'description', 'credit', 'debit'], *operations]
+            [['date', 'account', 'type', 'label', 'credit', 'debit'], *operations]
         )
     print('OPERATIONS({0})'.format(len(operations)))
     print(
