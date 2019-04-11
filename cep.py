@@ -63,7 +63,7 @@ def parse_pdf_file(filename):
     filename = re.sub(r'\s', '\\ ', filename)
 
     # parse pdf
-    command = 'pdf2txt.py -M 200 -o tmp.txt ' + filename
+    command = 'pdf2txt.py -M 120 -W 1 -L 1 -F 0.5 -o tmp.txt ' + filename
     os.system(command)
 
     # open resulting file
