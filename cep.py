@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 import sys
 import os
-import re
+import regex
 import csv
 from decimal import Decimal as D
 from pprint import pprint
@@ -37,7 +37,7 @@ previous_balance_regex = r'SOLDE PRECEDENT AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+(?
 #   NOUVEAU SOLDE CREDITEUR AU 15/11/14 (en francs : 1 026,44) 156,48
 new_balance_regex = r'NOUVEAU SOLDE CREDITEUR AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+\(en francs : (?P<bal_amt_fr>[\d, ]+)\)\s+(?P<bal_amt>[\d, ]+?)$'
 
-one_character_line_regex = r'^(\n.| +)$'
+one_character_line_regex = r'^( +|.|\n)$'
 
 
 # counters for stats
@@ -60,7 +60,7 @@ def parse_pdf_file(filename):
     print('Parsing: ' + filename)
 
     # escape spaces in name
-    filename = re.sub(r'\s', '\\ ', filename)
+    filename = regex.sub(r'\s', '\\ ', filename)
 
     # parse pdf
     command = 'pdf2txt.py -M 120 -W 1 -L 0.7 -F 0.5 -o tmp.txt ' + filename
@@ -79,14 +79,16 @@ def parse_pdf_file(filename):
 
 
 def clean_statement(statement):
-    # remove lines with one character or less
-    re.sub(one_character_line_regex, '', statement, flags=re.M)
-    return statement
+    # flag lines with one character or less
+    cleaned = regex.sub(one_character_line_regex, 'FLAG_DELETE_THIS_LINE', statement, flags=regex.M)
+    # keep only not flaged lines
+    cleaned = '\n'.join([s for s in cleaned.splitlines() if 'FLAG_DELETE_THIS_LINE' not in s])
+    return cleaned
 
 
 def search_account_owner(regex_to_use, statement):
     # search for owner to identify multiple accounts
-    account_owner = re.search(regex_to_use, statement, flags=re.M)
+    account_owner = regex.search(regex_to_use, statement, flags=regex.M)
     if (not account_owner):
         raise ValueError('No account owner was found.')
     # extract and strip
@@ -100,24 +102,24 @@ def search_accounts(statement):
     owner = search_account_owner(owner_regex_v1, statement)
 
     account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
-    accounts = re.findall(account_regex, statement, flags=re.M)
+    accounts = regex.findall(account_regex, statement, flags=regex.M)
 
     # no accounts found, try to get owner with other regex
     if (len(accounts) == 0):
         owner = search_account_owner(owner_regex_v2, statement)
         account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
-        accounts = re.findall(account_regex, statement, flags=re.M)
+        accounts = regex.findall(account_regex, statement, flags=regex.M)
 
     print(' * There are {0} accounts: '.format(len(accounts)))
     # cleanup account number for each returned account
     # we use a syntax called 'list comprehension'
-    cleaned_accounts = [(full, re.sub(r'\D', '', account_number))
+    cleaned_accounts = [(full, regex.sub(r'\D', '', account_number))
                         for (full, account_number) in accounts]
     return cleaned_accounts
 
 
 def search_emission_date(statement):
-    emission_date = re.search(emission_date_regex, statement)
+    emission_date = regex.search(emission_date_regex, statement)
     # extract and strip
     emission_date = emission_date.group('date').strip()
     # parse date
@@ -132,7 +134,7 @@ def search_previous_balance(account):
     previous_balance_date = None
     # in the case of a new account (with no history) or a first statement...
     # ...this regex won't match
-    previous_balance = re.search(previous_balance_regex, account, flags=re.M)
+    previous_balance = regex.search(previous_balance_regex, account, flags=regex.M)
 
     # if the regex matched
     if previous_balance:
@@ -148,7 +150,7 @@ def search_previous_balance(account):
 def search_new_balance(account):
     new_balance_amount = D(0.0)
     new_balance_date = None
-    new_balance = re.search(new_balance_regex, account, flags=re.M)
+    new_balance = regex.search(new_balance_regex, account, flags=regex.M)
 
     # if the regex matched
     if new_balance:
@@ -297,7 +299,7 @@ def main():
             total = D(0.0)
 
             # search all debit operations
-            debit_ops = re.finditer(debit_regex, account, flags=re.M)
+            debit_ops = regex.finditer(debit_regex, account, flags=regex.M)
             for debit_op in debit_ops:
                 # extract regex groups
                 op_date = debit_op.group('op_dte').strip()
@@ -312,7 +314,7 @@ def main():
                                                          account_number, op_label, op_amount, True))
 
             # search all credit operations
-            credit_ops = re.finditer(credit_regex, account, flags=re.M)
+            credit_ops = regex.finditer(credit_regex, account, flags=regex.M)
             for credit_op in credit_ops:
                 # extract regex groups
                 op_date = credit_op.group('op_dte').strip()
