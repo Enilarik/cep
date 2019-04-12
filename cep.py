@@ -20,18 +20,28 @@ owner_regex_v2 = r'^(?P<title>MR|MME|MLLE)\s+(?P<owner>\D*?)$'
 emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 
 # - will match debits
+# Ex 1.
 # 18/10 CB CENTRE LECLERC  FACT 161014      13,40
+# Ex 2.
+# 27/05 PRLV FREE MOBILE      3,99
+# -Réf. donneur d'ordre :
+# fmpmt-XXXXXXXX
+# -Réf. du mandat : FM-XXXXXXXX-X
 debit_regex = (r'^'
     '(?P<op_dte>\d\d\/\d\d)'                                    # date: dd/dd
     '(?P<op_lbl>.*?)'                                           # label: any single character (.), between 0 and unlimited (*), lazy (?)
     '\s+'                                                       # any whitespace character (\s), between 1 and unlimited (+), greedy
     '(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'    # amount: alternative between ddd ddd,dd and ddd,dd, until the end of line ($)
-    '(?s)'
-    '(?P<op_lbl_extra>.*?(?=^(?1)|^(?3)|\Z))'                   # extra label: any character until the positive lookehead is satisfied
+    '\s*'                                                       # any whitespace character (\s), between 0 and unlimited (*), greedy
+    '(?P<op_lbl_extra>[\S\s]*?(?=^(?1)|^(?3)|\Z))'              # extra label: 'single line mode' until the positive lookehead is satisfied
                                                                 # positive lookahead --> alternative between:
                                                                 #   -line starting with first named subpatern (date)
                                                                 #   -line starting with third named subpatern (amount)
                                                                 #   -EOL
+                                                                # we use [\s\S]*? to do like the single line mode
+                                                                # basically it's going to match any non-whitespace OR whitespace character. That is, any character, including linebreaks.
+                                                                # we could have used (?s) to activate the real line mode...
+                                                                # ...but Python doesn't support mode-modified groups (meaning that it will change the mode for the whole regex)
 )
 
 # - will match credits
