@@ -38,6 +38,7 @@ previous_balance_regex = r'SOLDE PRECEDENT AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+(?
 new_balance_regex = r'NOUVEAU SOLDE CREDITEUR AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+\(en francs : (?P<bal_amt_fr>[\d, ]+)\)\s+(?P<bal_amt>[\d, ]+?)$'
 
 one_character_line_regex = r'^( +|.|\n)$'
+empty_line_regex = r'^(\s*)$'
 
 
 # counters for stats
@@ -81,7 +82,32 @@ def parse_pdf_file(filename):
 def clean_statement(statement):
     # flag lines with one character or less
     cleaned = regex.sub(one_character_line_regex, 'FLAG_DELETE_THIS_LINE', statement, flags=regex.M)
-    # keep only not flaged lines
+    # keep only non-flaged lines
+    cleaned = '\n'.join([s for s in cleaned.splitlines() if 'FLAG_DELETE_THIS_LINE' not in s])
+    return cleaned
+
+
+def clean_account(account, account_number):
+    # split the text by the 'new_balance_regex' line
+    cleaned = regex.split(new_balance_regex, account, flags=regex.M)
+    # keep the first part (i.e. everything that's before the 'new_balance_regex' line)
+    cleaned = cleaned[0]
+    # flag lines with specific words
+    words_to_remove = [
+        account_number,
+        'Relevé',
+        'vos comptes',
+        'Page',
+        'Débit Crédit',
+        'Détail des opérations',
+        'frais bancaires et cotisations',
+    ]
+    words_to_remove_regex = r'^.*\b(' + '|'.join(words_to_remove) + r')\b.*$'
+    cleaned = regex.sub(words_to_remove_regex, 'FLAG_DELETE_THIS_LINE', cleaned, flags=regex.M)
+    # keep only non-flaged lines
+    cleaned = '\n'.join([s for s in cleaned.splitlines() if 'FLAG_DELETE_THIS_LINE' not in s])
+    # remove empty lines
+    cleaned = regex.sub(empty_line_regex, 'FLAG_DELETE_THIS_LINE', cleaned, flags=regex.M)
     cleaned = '\n'.join([s for s in cleaned.splitlines() if 'FLAG_DELETE_THIS_LINE' not in s])
     return cleaned
 
@@ -298,6 +324,8 @@ def main():
             # create total for inconsistency check
             total = D(0.0)
 
+            # clean account to keep only operations
+            account = clean_account(account, full)
             # search all debit operations
             debit_ops = regex.finditer(debit_regex, account, flags=regex.M)
             for debit_op in debit_ops:
