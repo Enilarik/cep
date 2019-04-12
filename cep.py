@@ -21,11 +21,23 @@ emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 
 # - will match debits
 # 18/10 CB CENTRE LECLERC  FACT 161014      13,40
-debit_regex = r'^(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*?)[\s()]+(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'
+debit_regex = (r'^'
+    '(?P<op_dte>\d\d\/\d\d)'                                    # date: dd/dd
+    '(?P<op_lbl>.*?)'                                           # label: any single character (.), between 0 and unlimited (*), lazy (?)
+    '\s+'                                                       # any whitespace character (\s), between 1 and unlimited (+), greedy
+    '(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'    # amount: alternative between ddd ddd,dd and ddd,dd, until the end of line ($)
+    '(?s)'
+    '(?P<op_lbl_extra>.*?(?=^(?1)|^(?3)|\Z))'                   # extra label: any character until the positive lookehead is satisfied
+                                                                # positive lookahead --> alternative between:
+                                                                #   -line starting with first named subpatern (date)
+                                                                #   -line starting with third named subpatern (amount)
+                                                                #   -EOL
+)
+
 
 # - will match credits
 # 150,0008/11 VIREMENT PAR INTERNET
-credit_regex = r'^(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})(?P<op_dte>\d\d\/\d\d)(?P<op_dsc>.*)$'
+credit_regex = r'^(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})(?P<op_dte>\d\d\/\d\d)(?P<op_lbl>.*)$'
 
 # - will match previous account balances (including date and balance)
 #   SOLDE PRECEDENT AU 15/10/14 56,05
@@ -38,7 +50,11 @@ previous_balance_regex = r'SOLDE PRECEDENT AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+(?
 new_balance_regex = r'NOUVEAU SOLDE CREDITEUR AU (?P<bal_dte>\d\d\/\d\d\/\d\d)\s+\(en francs : (?P<bal_amt_fr>[\d, ]+)\)\s+(?P<bal_amt>[\d, ]+?)$'
 
 one_character_line_regex = r'^( +|.|\n)$'
+longer_than_80_regex = r'^(.{70,})$'
+smaller_than_2_regex = r'^.{,2}$'
 empty_line_regex = r'^(\s*)$'
+trailing_spaces_and_tabs_regex = r'[ \t]+$'
+line_return_regex = r'(\n)$'
 
 
 # counters for stats
@@ -101,13 +117,20 @@ def clean_account(account, account_number):
         'Débit Crédit',
         'Détail des opérations',
         'frais bancaires et cotisations',
+        'SOLDE PRECEDENT AU',
     ]
     words_to_remove_regex = r'^.*\b(' + '|'.join(words_to_remove) + r')\b.*$'
+    # flag lines longer than 80
+    cleaned = regex.sub(longer_than_80_regex, 'FLAG_DELETE_THIS_LINE', cleaned, flags=regex.M)
+    # flag lines with words to remove
     cleaned = regex.sub(words_to_remove_regex, 'FLAG_DELETE_THIS_LINE', cleaned, flags=regex.M)
-    # keep only non-flaged lines
-    cleaned = '\n'.join([s for s in cleaned.splitlines() if 'FLAG_DELETE_THIS_LINE' not in s])
-    # remove empty lines
+    # remove trailing spaces
+    cleaned = regex.sub(trailing_spaces_and_tabs_regex, '', cleaned, flags=regex.M)
+    # flag empty lines
     cleaned = regex.sub(empty_line_regex, 'FLAG_DELETE_THIS_LINE', cleaned, flags=regex.M)
+    # flag lines with less than 2 characters
+    cleaned = regex.sub(smaller_than_2_regex, 'FLAG_DELETE_THIS_LINE', cleaned, flags=regex.M)
+    # keep only non-flaged lines
     cleaned = '\n'.join([s for s in cleaned.splitlines() if 'FLAG_DELETE_THIS_LINE' not in s])
     return cleaned
 
@@ -258,7 +281,7 @@ def search_operation_type(op_label):
 
 
 def create_operation_entry(op_date, statement_emission_date, account_number, op_label,
-                           op_amount, debit):
+                            op_label_extra, op_amount, debit):
     # search the operation type according to its label
     op_type = search_operation_type(op_label)
 
@@ -267,6 +290,7 @@ def create_operation_entry(op_date, statement_emission_date, account_number, op_
         account_number,
         op_type,
         op_label.strip(),
+        op_label_extra.strip().replace('\n','\\'),
         # the star '*' operator is like spread '...' in JS
         *set_operation_amount(op_amount, debit)
     ]
@@ -331,7 +355,8 @@ def main():
             for debit_op in debit_ops:
                 # extract regex groups
                 op_date = debit_op.group('op_dte').strip()
-                op_label = debit_op.group('op_dsc').strip()
+                op_label = debit_op.group('op_lbl').strip()
+                op_label_extra = debit_op.group('op_lbl_extra').strip()
                 op_amount = debit_op.group('op_amt').strip()
                 # convert amount to regular Decimal
                 op_amount = string_to_decimal(op_amount)
@@ -339,14 +364,14 @@ def main():
                 total -= op_amount
                 # print('debit {0}'.format(op_amount))
                 operations.append(create_operation_entry(op_date, emission_date,
-                                                         account_number, op_label, op_amount, True))
+                                                         account_number, op_label, op_label_extra, op_amount, True))
 
             # search all credit operations
             credit_ops = regex.finditer(credit_regex, account, flags=regex.M)
             for credit_op in credit_ops:
                 # extract regex groups
                 op_date = credit_op.group('op_dte').strip()
-                op_label = credit_op.group('op_dsc').strip()
+                op_label = credit_op.group('op_lbl').strip()
                 op_amount = credit_op.group('op_amt').strip()
                 # convert amount to regular Decimal
                 op_amount = string_to_decimal(op_amount)
@@ -354,7 +379,7 @@ def main():
                 total += op_amount
                 # print('credit {0}'.format(op_amount))
                 operations.append(create_operation_entry(op_date, emission_date,
-                                                         account_number, op_label, op_amount, False))
+                                                         account_number, op_label, '', op_amount, False))
 
             # check inconsistencies
             if not ((previous_balance + total) == new_balance):
@@ -378,7 +403,7 @@ def main():
         # we use ';' separator to avoid conflicts with amounts' ','
         writer = csv.writer(f, delimiter=';')
         writer.writerows(
-            [['date', 'account', 'type', 'label', 'credit', 'debit'], *operations]
+            [['date', 'account', 'type', 'label', 'label_extra', 'credit', 'debit'], *operations]
         )
     print('OPERATIONS({0})'.format(len(operations)))
     print(
