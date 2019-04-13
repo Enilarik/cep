@@ -28,12 +28,12 @@ As a fork from Adrien's original work ([here](https://github.com/zarov/cep)), my
 
 
 ### How to install CEP?
-Prior to using CEP, you'll need `pdfminer` installed in your virtualenv:
+Prior to using CEP, you'll need some librairies (`pdfminer.six` and `regex`) installed in your virtualenv:
 ```bash
 cd cep
-virtualenv -p /usr/bin/python2 .
+virtualenv -p /usr/bin/python .
 source bin/activate
-pip install pdfminer
+pip3 install -r requirements.txt
 ```
 
 ### How to use CEP?
@@ -41,10 +41,6 @@ From your virtualenv:
 ```bash
 python3 cep.py folder_containing_your_statements/
 ```
-
-You'll notice that we create a virtualenv sourced from a **Python2** interpreter, whereas we run CEP using a **Python3** runner.
-The explanation is that `pdfminer` can only be installed using Python2, whereas CEP uses some Python3 features (such as [PEP3102](https://www.python.org/dev/peps/pep-3102/)).
-
 
 ### Compatibility
 As far as I tested, CEP works on PDF statements officially emitted by the Caisse d'Épargne, between years 2014 and 2019.
