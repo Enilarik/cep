@@ -27,21 +27,23 @@ emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 # -Réf. donneur d'ordre :
 # fmpmt-XXXXXXXX
 # -Réf. du mandat : FM-XXXXXXXX-X
+# [\S\s].*?
 debit_regex = (r'^'
-    '(?P<op_dte>\d\d\/\d\d)'                                    # date: dd/dd
-    '(?P<op_lbl>.*?)'                                           # label: any single character (.), between 0 and unlimited (*), lazy (?)
-    '[\s()]+'                                                   # any whitespace character or parentheses ([\s()]), between 1 and unlimited (+), greedy
-    '(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'    # amount: alternative between ddd ddd,dd and ddd,dd, until the end of line ($)
-    '\s*'                                                       # any whitespace character (\s), between 0 and unlimited (*), greedy
-    '(?P<op_lbl_extra>[\S\s]*?(?=^(?1)|^(?3)|\Z))'              # extra label: 'single line mode' until the positive lookehead is satisfied
-                                                                # positive lookahead --> alternative between:
-                                                                #   -line starting with first named subpatern (date)
-                                                                #   -line starting with third named subpatern (amount)
-                                                                #   -EOL
-                                                                # we use [\s\S]*? to do like the single line mode
-                                                                # basically it's going to match any non-whitespace OR whitespace character. That is, any character, including linebreaks.
-                                                                # we could have used (?s) to activate the real line mode...
-                                                                # ...but Python doesn't support mode-modified groups (meaning that it will change the mode for the whole regex)
+    '(?P<op_dte>\d\d\/\d\d)'                                        # date: dd/dd
+    '(?P<op_lbl>.*?)'                                               # label: any single character (.), between 0 and unlimited (*), lazy (?)
+    '\s.*?'                                                         # any whitespace and non-whitespace character (i.e. any character) ([\S\s]), any character (.) between 0 and unlimited (+), lazy
+    '(?P<op_amt>(?<=\s)\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$' # amount: alternative between ddd ddd,dd and ddd,dd, until the end of line ($)
+                                                                    # the positive lookebehind assures that there is at least one white space before any amount
+    '\s*'                                                           # any whitespace character (\s), between 0 and unlimited (*), greedy
+    '(?P<op_lbl_extra>[\S\s]*?(?=^(?1)|^(?3)|\Z))'                  # extra label: 'single line mode' until the positive lookehead is satisfied
+                                                                    # positive lookahead --> alternative between:
+                                                                    #   -line starting with first named subpatern (date)
+                                                                    #   -line starting with third named subpatern (amount)
+                                                                    #   -EOL
+                                                                    # we use [\s\S]*? to do like the single line mode
+                                                                    # basically it's going to match any non-whitespace OR whitespace character. That is, any character, including linebreaks.
+                                                                    # we could have used (?s) to activate the real line mode...
+                                                                    # ...but Python doesn't support mode-modified groups (meaning that it will change the mode for the whole regex)
 )
 
 # - will match credits
@@ -109,7 +111,7 @@ def parse_pdf_file(filename):
     filename = regex.sub(r'\s', '\\ ', filename)
 
     # parse pdf
-    command = 'pdf2txt.py -M 120 -W 1 -L 0.7 -F 0.5 -o tmp.txt ' + filename
+    command = 'pdf2txt.py -M 120 -W 1 -L 0.3 -F 0.5 -o tmp.txt ' + filename
     os.system(command)
 
     # open resulting file
@@ -171,7 +173,6 @@ def search_account_owner(regex_to_use, statement):
         raise ValueError('No account owner was found.')
     # extract and strip
     account_owner = account_owner.group('owner').strip()
-    print(' * Account owner is ' + account_owner)
     return account_owner
 
 
@@ -188,6 +189,7 @@ def search_accounts(statement):
         account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
         accounts = regex.findall(account_regex, statement, flags=regex.M)
 
+    print(' * Account owner is ' + owner)
     print(' * There are {0} accounts: '.format(len(accounts)))
     # cleanup account number for each returned account
     # we use a syntax called 'list comprehension'
