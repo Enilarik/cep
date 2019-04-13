@@ -30,7 +30,7 @@ emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
 debit_regex = (r'^'
     '(?P<op_dte>\d\d\/\d\d)'                                    # date: dd/dd
     '(?P<op_lbl>.*?)'                                           # label: any single character (.), between 0 and unlimited (*), lazy (?)
-    '\s+'                                                       # any whitespace character (\s), between 1 and unlimited (+), greedy
+    '[\s()]+'                                                   # any whitespace character or parentheses ([\s()]), between 1 and unlimited (+), greedy
     '(?P<op_amt>\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$'    # amount: alternative between ddd ddd,dd and ddd,dd, until the end of line ($)
     '\s*'                                                       # any whitespace character (\s), between 0 and unlimited (*), greedy
     '(?P<op_lbl_extra>[\S\s]*?(?=^(?1)|^(?3)|\Z))'              # extra label: 'single line mode' until the positive lookehead is satisfied
