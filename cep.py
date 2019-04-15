@@ -32,8 +32,12 @@ debit_regex = (r'^'
     '(?P<op_dte>\d\d\/\d\d)'                                        # date: dd/dd
     '(?P<op_lbl>.*?)'                                               # label: any single character (.), between 0 and unlimited (*), lazy (?)
     '\s.*?'                                                         # any whitespace and non-whitespace character (i.e. any character) ([\S\s]), any character (.) between 0 and unlimited (+), lazy
-    '(?P<op_amt>(?<=\s)\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2})$' # amount: alternative between ddd ddd,dd and ddd,dd, until the end of line ($)
+    '(?P<op_amt>(?<=\s)\d{1,3}\s{1}\d{1,3}\,\d{2}|\d{1,3}\,\d{2}(?!([\S\s].*?((?<=(?=(^(?!(?1))\s.*(?1))))\s.*(?3)))))$'
+                                                                    # amount: alternative between ddd ddd,dd and ddd,dd, until the end of line ($)
                                                                     # the positive lookebehind assures that there is at least one white space before any amount
+                                                                    # the positive lookbehind handles the following case where amount to match is 4,45 and not 14,40:
+                                                                    # 19/10 INTERETS TAEG 14,40
+                                                                    # VALEUR AU 18/10     4,45
     '\s*'                                                           # any whitespace character (\s), between 0 and unlimited (*), greedy
     '(?P<op_lbl_extra>[\S\s]*?(?=^(?1)|^(?3)|\Z))'                  # extra label: 'single line mode' until the positive lookehead is satisfied
                                                                     # positive lookahead --> alternative between:
