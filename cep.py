@@ -283,7 +283,7 @@ def search_operation_type(op_label):
         global deposit_op_count
         deposit_op_count += 1
     # incoming / outcoming wire transfers: salary, p2p, etc.
-    elif ((op_label.startswith('VIREMENT')) or (op_label.startswith('VIR SEPA'))):
+    elif ((op_label.startswith('VIREMENT')) or (op_label.startswith('VIR'))):
         type = 'WIRETRANSFER'
         global wire_transfer_op_count
         wire_transfer_op_count += 1
@@ -298,7 +298,7 @@ def search_operation_type(op_label):
         global card_debit_op_count
         card_debit_op_count += 1
     # withdrawals
-    elif ((op_label.startswith('RETRAIT DAB')) or (op_label.startswith('RET DAB'))):
+    elif ((op_label.startswith('RETRAIT')) or (op_label.startswith('RET DAB'))):
         type = 'WITHDRAWAL'
         global withdrawal_op_count
         withdrawal_op_count += 1
