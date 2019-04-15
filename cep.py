@@ -101,8 +101,8 @@ direct_debit_op_count = 0
 
 def parse_pdf_file(filename):
     # force filename as string
-    filename = str(filename).upper()
-    if filename.endswith('PDF') == False:
+    filename = str(filename)
+    if filename.upper().endswith('PDF') == False:
         return (True, None)
 
     print('Parsing: ' + filename)
