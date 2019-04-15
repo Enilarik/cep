@@ -273,7 +273,7 @@ def set_operation_amount(amount, debit):
 def search_operation_type(op_label):
     op_label = op_label.upper()
     # bank fees, international fees, subscription fee to bouquet, etc.
-    if ((op_label.startswith('*'))):
+    if ((op_label.startswith('*')) or (op_label.startswith('INTERETS'))):
         type = 'BANK'
         global bank_op_count
         bank_op_count += 1
@@ -325,7 +325,8 @@ def create_operation_entry(op_date, statement_emission_date, account_number, op_
         account_number,
         op_type,
         op_label.strip(),
-        op_label_extra.strip().replace('\n','\\'),
+        # op_label_extra.strip().replace('\n','\\'),
+        op_label_extra.strip(),
         # the star '*' operator is like spread '...' in JS
         *set_operation_amount(op_amount, debit)
     ]

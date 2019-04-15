@@ -11,5 +11,6 @@ pyvenv.cfg
 pip-selfcheck.json
 
 # files
+*.PDF
 *.pdf
 *.csv
