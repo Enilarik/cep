@@ -1,2 +1,3 @@
 pdfminer.six==20181108
 regex==2019.4.12
+chardet==3.0.4
