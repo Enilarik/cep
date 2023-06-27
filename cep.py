@@ -14,7 +14,7 @@ from pathlib import Path
 # prior to march 2019
 owner_regex_v1 = r'Identifiant client\s+(?P<owner>\D*)'
 # after march 2019
-owner_regex_v2 = r'^(?P<title>MR|MME|MLLE)\s+(?P<owner>\D*?)$'
+owner_regex_v2 = r'^(?P<title>M|MME|MLLE)\s+(?P<owner>\D*?)$'
 
 # - will match dates
 emission_date_regex = r'\b(?P<date>[\d/]{10})\b'
@@ -184,13 +184,13 @@ def search_accounts(statement):
     # get owner
     owner = search_account_owner(owner_regex_v1, statement)
 
-    account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
+    account_regex = r'^((?:M|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
     accounts = regex.findall(account_regex, statement, flags=regex.M)
 
     # no accounts found, try to get owner with other regex
     if (len(accounts) == 0):
         owner = search_account_owner(owner_regex_v2, statement)
-        account_regex = r'^((?:MR|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
+        account_regex = r'^((?:M|MME|MLLE) ' + owner + ' - .* - ([^(\n]*))$'
         accounts = regex.findall(account_regex, statement, flags=regex.M)
 
     print(' * Account owner is ' + owner)
