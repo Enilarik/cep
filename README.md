@@ -3,6 +3,10 @@
 
 **CEP aims at parsing PDF statements from the Caisse d'Épargne (a french banking group) and gathering extracted operations into a CSV file.**
 
+**This repository has been forked from Eliott's work ([here]https://github.com/eliottvincent/cep) itself forked from Adrien's original work ([here](https://github.com/zarov/cep))**
+**My version mostly brings changements i needed to make things work with my PDF at this date (Mid-2023).**
+**I don't own anything related to this parser, only a few bits of code here and there.**
+
 What you'll get at the end is a 6 columns CSV file:
 - date of the operation
 - account number concerned by the operation
@@ -18,14 +22,6 @@ What you'll get at the end is a 6 columns CSV file:
 - operation description
 - credit amount (if credit)
 - debit amount (if debit)
-
-As a fork from Adrien's original work ([here](https://github.com/zarov/cep)), my version brings some improvements and evolutions:
-- better operation parsing (originally, CEP was sometimes detecting operations that were not operations!)
-- operation type detection (the in place detection wasn't working at all 🤷‍♂️)
-- inconsistency checks (hence, CEP verifies that all operations are correctly parsed)
-- capacity to handle operations with amount up to 999,999.99€
-- proper CSV writing
-
 
 ### How to install CEP?
 Prior to using CEP, you'll need some librairies (`pdfminer.six` and `regex`) installed in your virtualenv:
