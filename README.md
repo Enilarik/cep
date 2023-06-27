@@ -3,7 +3,7 @@
 
 **CEP aims at parsing PDF statements from the Caisse d'Épargne (a french banking group) and gathering extracted operations into a CSV file.**
 
-**This repository has been forked from Eliott's work ([here]https://github.com/eliottvincent/cep) itself forked from Adrien's original work ([here](https://github.com/zarov/cep))**
+**This repository has been forked from Eliott's work ([here](https://github.com/eliottvincent/cep)) itself forked from Adrien's original work ([here](https://github.com/zarov/cep))**
 **My version mostly brings changements i needed to make things work with my PDF at this date (Mid-2023).**
 **I don't own anything related to this parser, only a few bits of code here and there.**
 
